@@ -9,7 +9,7 @@ const PORT = process.env.PORT || 3000;
 // Middleware
 app.use(express.json());
 app.use(cors());
-app.use(express.static(path.join(__dirname, )));
+app.use(express.static(path.join(__dirname, "../frontend")));
 
 // Simple in-memory user storage (use database in production)
 const users = new Map();
@@ -369,7 +369,7 @@ app.get("/api/health", (req, res) => {
 
 // Serve frontend files
 app.get("*", (req, res) => {
-  res.sendFile(path.join(__dirname, "..index.html"));
+   res.sendFile(path.join(__dirname, "../frontend/index.html"));
 });
 
 // Error handling middleware
