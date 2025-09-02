@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Sign Up | AI Micro-Tutor</title>
+  <link rel="stylesheet" href="style.css">
+  <style>
+    .form-container {
+      max-width: 400px;
+      margin: 60px auto;
+      padding: 30px;
+      border: 1px solid #ccc;
+      border-radius: 10px;
+      background: white;
+      text-align: center;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    }
+    input, select {
+      width: 90%;
+      padding: 10px;
+      margin: 8px 0;
+      border-radius: 5px;
+      border: 1px solid #ccc;
+      font-size: 14px;
+    }
+    .btn-primary {
+      padding: 12px 24px;
+      margin-top: 15px;
+      cursor: pointer;
+      border: none;
+      border-radius: 5px;
+      background-color: #4f46e5;
+      color: white;
+      font-weight: bold;
+      width: 95%;
+    }
+    .btn-primary:hover {
+      background-color: #3730a3;
+    }
+    .plan-selector {
+      margin: 15px 0;
+      padding: 10px;
+      border: 1px solid #e5e5e5;
+      border-radius: 8px;
+      background: #f8f9fa;
+    }
+    .plan-option {
+      display: flex;
+      align-items: center;
+      margin: 8px 0;
+      cursor: pointer;
+    }
+    .plan-option input[type="radio"] {
+      width: auto;
+      margin-right: 10px;
+    }
+    .premium-badge {
+      background: #fbbf24;
+      color: #92400e;
+      padding: 2px 8px;
+      border-radius: 12px;
+      font-size: 12px;
+      margin-left: 8px;
+    }
+  </style>
+</head>
+<body>
+  <nav class="navbar">
+    <h1 class="logo">AI Micro-Tutor</h1>
+    <a href="login.html" class="btn">Login</a>
+  </nav>
+
+  <div class="form-container">
+    <h2>Create Your Account</h2>
+    <form id="signupForm">
+      <input type="text" id="fullName" placeholder="Full Name" required>
+      <input type="email" id="email" placeholder="Email" required>
+      <input type="password" id="password" placeholder="Password (min 6 characters)" required minlength="6">
+      
+      <div class="plan-selector">
+        <h4>Choose Your Plan</h4>
+        <div class="plan-option">
+          <input type="radio" id="free" name="plan" value="free" checked>
+          <label for="free">Free Plan - 3 lessons/day</label>
+        </div>
+        <div class="plan-option">
+          <input type="radio" id="premium" name="plan" value="premium">
+          <label for="premium">Premium Plan - Unlimited <span class="premium-badge">$9.99/mo</span></label>
+        </div>
+      </div>
+
+      <button type="submit" class="btn-primary">Create Account</button>
+    </form>
+    <p>Already have an account? <a href="login.html">Login here</a></p>
+  </div>
+
+  <script>
+    const signupForm = document.getElementById("signupForm");
+    signupForm.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      
+      const formData = {
+        fullName: document.getElementById("fullName").value,
+        email: document.getElementById("email").value,
+        password: document.getElementById("password").value,
+        plan: document.querySelector('input[name="plan"]:checked').value
+      };
+
+      try {
+        const response = await fetch("/api/signup", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(formData)
+        });
+
+        const data = await response.json();
+        
+        if (response.ok) {
+          // Store user data
+          sessionStorage.setItem("user", JSON.stringify(data.user));
+          
+          // Show success message
+          const successMsg = `🎉 Account created successfully!\n\nWelcome ${data.user.fullName}!\nPlan: ${data.user.plan.toUpperCase()}\n\nRedirecting to dashboard...`;
+          alert(successMsg);
+          
+          // Small delay to show the message
+          setTimeout(() => {
+            window.location.href = "dashboard.html";
+          }, 1000);
+        } else {
+          const errorData = await response.json();
+          alert(errorData.error || "Signup failed. Please try again.");
+        }
+      } catch (error) {
+        console.error("Signup error:", error);
+        alert("Network error. Please try again.");
+      }
+    });
+  </script>
+</body>
+</html>

@@ -1,0 +1,398 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Lesson | AI Micro-Tutor</title>
+  <link rel="stylesheet" href="style.css">
+  <style>
+    .hidden { display: none; }
+    .lesson-container {
+      max-width: 800px;
+      margin: 0 auto;
+      padding: 2em;
+    }
+    .lesson-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 2em;
+    }
+    .lesson-content {
+      background: white;
+      padding: 2em;
+      border-radius: 12px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+      margin-bottom: 2em;
+      line-height: 1.6;
+    }
+    .quiz {
+      background: white;
+      padding: 2em;
+      border-radius: 12px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+      margin-bottom: 2em;
+    }
+    .quiz-question {
+      background: #f8f9fa;
+      padding: 1em;
+      border-radius: 8px;
+      margin: 1em 0;
+    }
+    .quiz-options {
+      list-style: none;
+      padding: 0;
+    }
+    .quiz-options li {
+      padding: 8px;
+      margin: 5px 0;
+      background: #f0f9ff;
+      border-radius: 5px;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+    .quiz-options li:hover {
+      background: #e0f2fe;
+    }
+    .quiz-options li.selected {
+      background: #3b82f6;
+      color: white;
+    }
+    .quiz-options li.correct {
+      background: #10b981;
+      color: white;
+    }
+    .quiz-options li.incorrect {
+      background: #ef4444;
+      color: white;
+    }
+    .chatbox {
+      background: white;
+      padding: 2em;
+      border-radius: 12px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    }
+    #chat-response {
+      max-height: 300px;
+      overflow-y: auto;
+      margin-top: 15px;
+      padding: 10px;
+      border: 1px solid #e5e5e5;
+      border-radius: 8px;
+      background: #f8f9fa;
+    }
+    .chat-message {
+      margin: 10px 0;
+      padding: 8px;
+      border-radius: 8px;
+    }
+    .user-message {
+      background: #e0f2fe;
+      text-align: right;
+    }
+    .tutor-message {
+      background: #f0f9ff;
+    }
+    .loading {
+      opacity: 0.6;
+      pointer-events: none;
+    }
+    .progress-indicator {
+      background: #4f46e5;
+      color: white;
+      padding: 8px 16px;
+      border-radius: 20px;
+      font-size: 14px;
+    }
+    .action-buttons {
+      display: flex;
+      gap: 1em;
+      margin-top: 1em;
+    }
+  </style>
+</head>
+<body>
+  <nav class="navbar">
+    <h1 class="logo">AI Micro-Tutor</h1>
+    <a href="dashboard.html" class="btn">Back to Dashboard</a>
+  </nav>
+
+  <div class="lesson-container">
+    <div class="lesson-header">
+      <h2 id="lesson-title">Loading lesson...</h2>
+      <div class="progress-indicator" id="lesson-progress">Lesson 1 of 10</div>
+    </div>
+
+    <div class="lesson-content" id="lesson-content-container">
+      <p id="lesson-content">Please wait while we generate your personalized lesson...</p>
+      <div class="action-buttons">
+        <button class="btn-primary" onclick="loadQuiz()" id="quiz-btn" disabled>Take Quiz</button>
+        <button class="btn" onclick="markComplete()" id="complete-btn" disabled>Mark Complete</button>
+      </div>
+    </div>
+
+    <div id="quiz-section" class="quiz hidden">
+      <h3>Knowledge Check</h3>
+      <div id="quiz-content"></div>
+      <button onclick="submitQuiz()" class="btn-primary" id="submit-quiz" style="display: none;">Submit Quiz</button>
+      <div id="quiz-results" class="hidden"></div>
+    </div>
+
+    <div class="chatbox">
+      <h3>Ask Your AI Tutor</h3>
+      <div style="display: flex; gap: 10px;">
+        <input type="text" id="question" placeholder="Ask anything about this topic..." style="flex: 1;">
+        <button onclick="askTutor()" class="btn-primary">Ask</button>
+      </div>
+      <div id="chat-response"></div>
+    </div>
+  </div>
+
+  <script>
+    let currentQuizAnswers = {};
+    let currentQuizData = {};
+
+    // Fetch lesson from backend
+    async function fetchLesson(topic) {
+      const container = document.getElementById("lesson-content-container");
+      container.classList.add("loading");
+      
+      try {
+        const response = await fetch("/api/lesson", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ topic })
+        });
+        
+        const data = await response.json();
+        document.getElementById("lesson-title").textContent = `${topic} - Lesson`;
+        document.getElementById("lesson-content").innerHTML = data.lesson || "Lesson content will appear here.";
+        
+        // Enable buttons
+        document.getElementById("quiz-btn").disabled = false;
+        document.getElementById("complete-btn").disabled = false;
+        
+      } catch (error) {
+        console.error("Error fetching lesson:", error);
+        document.getElementById("lesson-content").innerHTML = 
+          `<p style="color: #dc2626;">Unable to load lesson. Please check your connection and try again.</p>
+           <button onclick="location.reload()" class="btn">Retry</button>`;
+      } finally {
+        container.classList.remove("loading");
+      }
+    }
+
+    // Load quiz from backend
+    async function loadQuiz() {
+      const topic = sessionStorage.getItem("selectedTopic");
+      const quizSection = document.getElementById("quiz-section");
+      const quizContent = document.getElementById("quiz-content");
+
+      try {
+        const response = await fetch("/api/quiz", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ topic })
+        });
+        
+        const data = await response.json();
+        
+        // Parse quiz data (assuming it returns structured questions)
+        currentQuizData = data.questions || parseQuizText(data.quiz);
+        
+        // Display quiz questions
+        let quizHTML = "";
+        currentQuizData.forEach((q, index) => {
+          quizHTML += `
+            <div class="quiz-question">
+              <h4>Question ${index + 1}: ${q.question}</h4>
+              <ul class="quiz-options">
+                ${q.options.map((option, i) => 
+                  `<li onclick="selectAnswer(${index}, ${i})" data-question="${index}" data-option="${i}">
+                    ${String.fromCharCode(65 + i)}. ${option}
+                  </li>`
+                ).join('')}
+              </ul>
+            </div>
+          `;
+        });
+        
+        quizContent.innerHTML = quizHTML;
+        quizSection.classList.remove("hidden");
+        document.getElementById("submit-quiz").style.display = "block";
+        
+      } catch (error) {
+        console.error("Error fetching quiz:", error);
+        quizContent.innerHTML = "<p style='color: #dc2626;'>Unable to load quiz. Please try again.</p>";
+        quizSection.classList.remove("hidden");
+      }
+    }
+
+    // Parse quiz text into structured format (fallback)
+    function parseQuizText(quizText) {
+      const questions = [];
+      const lines = quizText.split('\n').filter(line => line.trim());
+      
+      // Simple parsing - in production, ensure backend returns structured data
+      for (let i = 0; i < lines.length; i += 5) {
+        if (lines[i] && lines[i + 4]) {
+          questions.push({
+            question: lines[i],
+            options: [lines[i + 1], lines[i + 2], lines[i + 3], lines[i + 4]],
+            correct: 0 // Default - should come from backend
+          });
+        }
+      }
+      
+      return questions.length > 0 ? questions : [
+        {
+          question: "What did you learn from this lesson?",
+          options: ["Key concepts", "Practical applications", "New insights", "All of the above"],
+          correct: 3
+        }
+      ];
+    }
+
+    function selectAnswer(questionIndex, optionIndex) {
+      // Clear previous selections for this question
+      document.querySelectorAll(`[data-question="${questionIndex}"]`).forEach(el => {
+        el.classList.remove("selected");
+      });
+      
+      // Mark new selection
+      document.querySelector(`[data-question="${questionIndex}"][data-option="${optionIndex}"]`)
+        .classList.add("selected");
+      
+      currentQuizAnswers[questionIndex] = optionIndex;
+    }
+
+    function submitQuiz() {
+      let correct = 0;
+      const totalQuestions = currentQuizData.length;
+      
+      currentQuizData.forEach((q, index) => {
+        const userAnswer = currentQuizAnswers[index];
+        const correctAnswer = q.correct || 0;
+        
+        const options = document.querySelectorAll(`[data-question="${index}"]`);
+        options.forEach((option, i) => {
+          if (i === correctAnswer) {
+            option.classList.add("correct");
+          } else if (i === userAnswer && i !== correctAnswer) {
+            option.classList.add("incorrect");
+          }
+        });
+        
+        if (userAnswer === correctAnswer) correct++;
+      });
+
+      const score = Math.round((correct / totalQuestions) * 100);
+      
+      document.getElementById("quiz-results").innerHTML = `
+        <h4>Quiz Results</h4>
+        <p>You scored ${correct}/${totalQuestions} (${score}%)</p>
+        <p>${score >= 80 ? "Great job! 🎉" : score >= 60 ? "Good effort! Keep practicing." : "Keep studying and try again."}</p>
+      `;
+      document.getElementById("quiz-results").classList.remove("hidden");
+      document.getElementById("submit-quiz").style.display = "none";
+
+      // Update progress
+      updateProgress('quiz', score);
+    }
+
+    // AI Chatbot function
+    async function askTutor() {
+      const question = document.getElementById("question").value;
+      const responseBox = document.getElementById("chat-response");
+
+      if (!question.trim()) return;
+
+      // Add user message
+      responseBox.innerHTML += `<div class="chat-message user-message"><strong>You:</strong> ${question}</div>`;
+      document.getElementById("question").value = "";
+      responseBox.scrollTop = responseBox.scrollHeight;
+
+      try {
+        const topic = sessionStorage.getItem("selectedTopic");
+        const response = await fetch("/api/chat", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ message: question, topic })
+        });
+
+        const data = await response.json();
+        responseBox.innerHTML += `<div class="chat-message tutor-message"><strong>AI Tutor:</strong> ${data.reply}</div>`;
+        responseBox.scrollTop = responseBox.scrollHeight;
+        
+      } catch (error) {
+        console.error("Error contacting tutor:", error);
+        responseBox.innerHTML += `<div class="chat-message tutor-message"><strong>AI Tutor:</strong> Sorry, I'm having trouble connecting right now. Please try again.</div>`;
+      }
+    }
+
+    function markComplete() {
+      updateProgress('lesson');
+      alert("Lesson marked as complete! Great job! 🎉");
+      window.location.href = "dashboard.html";
+    }
+
+    function updateProgress(type, score = null) {
+      const user = JSON.parse(sessionStorage.getItem("user") || "{}");
+      const progress = JSON.parse(localStorage.getItem("userProgress") || "{}");
+      const topic = sessionStorage.getItem("selectedTopic");
+      const today = new Date().toDateString();
+
+      // Initialize progress structure
+      if (!progress.dailyLessons) progress.dailyLessons = {};
+      if (!progress.topics) progress.topics = {};
+      if (!progress.totalLessons) progress.totalLessons = 0;
+      if (!progress.totalQuizzes) progress.totalQuizzes = 0;
+
+      // Update daily lesson count
+      if (type === 'lesson') {
+        progress.dailyLessons[today] = (progress.dailyLessons[today] || 0) + 1;
+        progress.totalLessons += 1;
+        
+        // Update topic progress
+        const topicKey = topic.toLowerCase().replace(/\s+/g, '');
+        progress.topics[topicKey] = Math.min(100, (progress.topics[topicKey] || 0) + 10);
+      }
+
+      if (type === 'quiz') {
+        progress.totalQuizzes += 1;
+        if (score >= 80) {
+          const topicKey = topic.toLowerCase().replace(/\s+/g, '');
+          progress.topics[topicKey] = Math.min(100, (progress.topics[topicKey] || 0) + 15);
+        }
+      }
+
+      localStorage.setItem("userProgress", JSON.stringify(progress));
+    }
+
+    // Allow Enter key to submit questions
+    document.addEventListener('DOMContentLoaded', () => {
+      document.getElementById("question").addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') {
+          askTutor();
+        }
+      });
+    });
+
+    // On page load, fetch lesson
+    window.onload = () => {
+      const user = JSON.parse(sessionStorage.getItem("user") || "{}");
+      if (!user.email) {
+        window.location.href = "login.html";
+        return;
+      }
+
+      const topic = sessionStorage.getItem("selectedTopic");
+      if (topic) {
+        fetchLesson(topic);
+      } else {
+        window.location.href = "dashboard.html";
+      }
+    };
+  </script>
+</body>
+</html>
